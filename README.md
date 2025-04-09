@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+NextJs 15, Shadcn UI and Supabase
 
-## Getting Started
+## Install Dependencies
 
-First, run the development server:
+```bash
+npm install
+```
+
+## Add Env variables
+
+```base
+rename env.example to .env
+```
+
+## Run Project
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Supabase Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. In you supabase first you need to setup your project and then navigate to authentication page in the sidebar, Add a new user and copy it's uid and email.
+2. Now navigate to SQL Editor page from sidebar, click a plus button and create a new snippet and paste the code below
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+-- First, create the users table
+CREATE TABLE IF NOT EXISTS public.users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    role TEXT NOT NULL CHECK (role IN ('Admin', 'User', 'Guest')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
-## Learn More
+-- Create the trigger function outside of any DO blocks
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-To learn more about Next.js, take a look at the following resources:
+-- Create the trigger
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON public.users
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+-- Disable Row Level Security
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+-- Insert an admin user using the API
+-- Note: You'll need to create the user in auth separately
+INSERT INTO public.users (user_id, email, role)
+VALUES (
+    '00000000-0000-0000-0000-000000000000', -- Replace with actual user_id from auth
+    'admin@example.com', -- Replace with actual email address from auth
+    'Admin'
+)
+ON CONFLICT (user_id) DO NOTHING;
+```
+3. In the end of this script replace the user_id and email with the user_id and email you copied from authentication and click run.
 
-## Deploy on Vercel
+4. This script will create a user table with a user of role Admin and you can login in admin panel through that user
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project uses Nextjs 15, Shadcn UI and Supabase and uses both dark and light theme. Protected routes are already implemented and authenticated in middleware. Most of the UI components are alread added in components/ui and if there's something missing please visit shadcn UI docs 
+https://ui.shadcn.com/docs/components/accordion
